@@ -1,12 +1,24 @@
 // Import necessary modules
-import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken'
-import nodemailer from 'nodemailer'
-import multer from 'multer'
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
+import multer from "multer";
 
-// // Import User model
-import User from '../model/User.js'
+// Import User model
+import User from "../model/User.js";
 
+// Configure multer for file upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "uploads/");
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage: storage });
 
 // Function to register a new user
 export const registerUser = async (req, res) => {
@@ -23,6 +35,18 @@ export const registerUser = async (req, res) => {
       username,
       email,
       password: hashedPassword,
+    });
+
+    // Send registration email
+    const transporter = nodemailer.createTransport({
+      // Configure transporter
+    });
+
+    await transporter.sendMail({
+      to: email,
+      subject: "Registration Successful",
+      html: `<p>Dear ${fullname},</p>
+             <p>Welcome to our platform! You have successfully registered.</p>`,
     });
 
     // Generate JWT token
@@ -51,6 +75,18 @@ export const loginUser = async (req, res) => {
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
+
+    // Send login email
+    const transporter = nodemailer.createTransport({
+      // Configure transporter
+    });
+
+    await transporter.sendMail({
+      to: email,
+      subject: "Login Successful",
+      html: `<p>Dear ${user.fullname},</p>
+             <p>Your login to our platform was successful.</p>`,
+    });
 
     // Generate JWT token
     const token = jwt.sign({ userId: user.id }, "your_secret_key", {

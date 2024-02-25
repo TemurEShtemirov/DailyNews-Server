@@ -1,33 +1,47 @@
-import { Sequelize,DataTypes } from "sequelize";
-import sequelize from "../config/db.config.js";
+import { DataTypes, Model } from "sequelize";
+import sequelize from "../config/database";
 import User from "./User.js";
 
-const Post = sequelize.define("posts", {
-  uuid: {
-    type: DataTypes.UUID,
-    primaryKey: true,
-    defaultValue: Sequelize.UUIDV4,
-  },
-  title: {
-    type: DataTypes.STRING(255),
-    allowNull: false,
-  },
-  content: {
-    type: DataTypes.TEXT,
-    allowNull: false,
-  },
-  publication_date: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: Sequelize.NOW,
-  },
-  image: {
-    type: DataTypes.STRING(255),
-  },
-},{
-    timestamps:true
-});
+class Post extends Model {}
 
-Post.belongsTo(User);
+Post.init(
+  {
+    uuid: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    user_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: User,
+        key: "uuid",
+      },
+    },
+    title: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+    },
+    content: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+    },
+    publication_date: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+    image: {
+      type: DataTypes.STRING(255),
+    },
+  },
+  {
+    sequelize,
+    modelName: "Post",
+    tableName: "posts",
+    timestamps: false,
+  }
+);
 
-export default Post
+export default Post;
