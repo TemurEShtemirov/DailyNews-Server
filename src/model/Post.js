@@ -1,10 +1,9 @@
-import { DataTypes, Model } from "sequelize";
-import sequelize from "../config/database";
+import { DataTypes, Sequelize } from "sequelize";
+import sequelize from "../config/db.config.js";
 import User from "./User.js";
 
-class Post extends Model {}
-
-Post.init(
+const Post = sequelize.define(
+  "Posts",
   {
     uuid: {
       type: DataTypes.UUID,
@@ -30,18 +29,17 @@ Post.init(
     publication_date: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: DataTypes.NOW,
+      defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
     },
     image: {
       type: DataTypes.STRING(255),
     },
   },
   {
-    sequelize,
-    modelName: "Post",
     tableName: "posts",
     timestamps: false,
   }
 );
+
 
 export default Post;

@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import multer from "multer";
+import path from "path";
 
 // Import User model
 import User from "../model/User.js";
@@ -10,7 +11,7 @@ import User from "../model/User.js";
 // Configure multer for file upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/");
+    cb(null, "./user_upload/"); // Fix the destination path
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
@@ -26,36 +27,46 @@ export const registerUser = async (req, res) => {
     // Extract user data from request body
     const { fullname, username, email, password } = req.body;
 
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Handle file upload
+    upload.single("file")(req, res, async function (err) {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ message: "File upload error" });
+      } else if (err) {
+        return res.status(500).json({ message: "Internal server error" });
+      }
 
-    // Create a new user record
-    const user = await User.create({
-      fullname,
-      username,
-      email,
-      password: hashedPassword,
-    });
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Send registration email
-    const transporter = nodemailer.createTransport({
-      // Configure transporter
-    });
+      // Create a new user record
+      const user = await User.create({
+        fullname,
+        username,
+        email,
+        password: hashedPassword,
+        profilePicture: req.file ? req.file.filename : null, // Save filename in the database
+      });
 
-    await transporter.sendMail({
-      to: email,
-      subject: "Registration Successful",
-      html: `<p>Dear ${fullname},</p>
+      // Send registration email
+      const transporter = nodemailer.createTransport({
+        // Configure transporter
+      });
+
+      await transporter.sendMail({
+        to: email,
+        subject: "Registration Successful",
+        html: `<p>Dear ${fullname},</p>
              <p>Welcome to our platform! You have successfully registered.</p>`,
-    });
+      });
 
-    // Generate JWT token
-    const token = jwt.sign({ userId: user.id }, "your_secret_key", {
-      expiresIn: "1h",
-    });
+      // Generate JWT token
+      const token = jwt.sign({ userId: user.id }, "your_secret_key", {
+        expiresIn: "1h",
+      });
 
-    // Respond with success message and token
-    res.status(201).json({ message: "User registered successfully", token });
+      // Respond with success message and token
+      res.status(201).json({ message: "User registered successfully", token });
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
@@ -166,11 +177,11 @@ export const updateUserById = async (req, res) => {
     const { id } = req.params;
 
     // Extract updated user data from request body
-    const { fullname, username, email } = req.body;
+    const { fullname, username, email, password } = req.body;
 
     // Find user by id and update
     const [updatedRows] = await User.update(
-      { fullname, username, email },
+      { fullname, username, email, password },
       { where: { id } }
     );
 
