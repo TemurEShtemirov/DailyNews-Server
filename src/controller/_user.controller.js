@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import multer from "multer";
 import path from "path";
+import schedule from "schedule";
 
 // Import User model
 import User from "../model/User.js";
@@ -20,6 +21,14 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
+
+const transporter = nodemailer.createTransport({
+  service: "Gmail",
+  auth: {
+    user: "temureshtemirov10@gmail.com",
+    pass: "edlxigeiubffzdms",
+  },
+});
 
 // Function to register a new user
 export const registerUser = async (req, res) => {
@@ -47,20 +56,26 @@ export const registerUser = async (req, res) => {
         profilePicture: req.file ? req.file.filename : null, // Save filename in the database
       });
 
-      // Send registration email
-      const transporter = nodemailer.createTransport({
-        // Configure transporter
-      });
+      // Send email using nodemailer
+      await sendEmail(name, email, newOrder.id);
 
-      await transporter.sendMail({
-        to: email,
-        subject: "Registration Successful",
-        html: `<p>Dear ${fullname},</p>
-             <p>Welcome to our platform! You have successfully registered.</p>`,
-      });
+      // Schedule the follow-up email after 4 hours
+      scheduleFollowUpEmail(newOrder.id, name, email);
+
+      // // Send registration email
+      // const transporter = nodemailer.createTransport({
+      //   // Configure transporter
+      // });
+
+      // await transporter.sendMail({
+      //   to: email,
+      //   subject: "Registration Successful",
+      //   html: `<p>Dear ${fullname},</p>
+      //        <p>Welcome to our platform! You have successfully registered.</p>`,
+      // });
 
       // Generate JWT token
-      const token = jwt.sign({ userId: user.id }, "your_secret_key", {
+      const token = jwt.sign({ userId: user.id }, "daily__blog", {
         expiresIn: "1h",
       });
 
@@ -100,7 +115,7 @@ export const loginUser = async (req, res) => {
     });
 
     // Generate JWT token
-    const token = jwt.sign({ userId: user.id }, "your_secret_key", {
+    const token = jwt.sign({ userId: user.id }, "daily__blog", {
       expiresIn: "1h",
     });
 
@@ -195,5 +210,78 @@ export const updateUserById = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
+const sendEmail = async (fullname, email) => {
+  // HTML email content
+  const htmlMessage = `
+   <p>Dear ${fullname},</p>
+         <p>Welcome to our platform! You have successfully registered.</p>
+  `;
+
+  // Email options
+  const mailOptions = {
+    from: "temureshtemirov10@gmail.com",
+    to: email,
+    subject: "Register Confirmation",
+    html: htmlMessage,
+  };
+
+  // Send email
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log("Email sent successfully");
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
+};
+
+const scheduleFollowUpEmail = (orderId, name, email) => {
+  const followUpDate = new Date(Date.now() + 4 * 60 * 60 * 1000); // 4 hours later
+
+  const job = schedule.scheduleJob(followUpDate, async () => {
+    try {
+      // Fetch the order details from the database
+      const order = await OrderModel.findByPk(orderId);
+
+      if (order && !order.isFinished) {
+        // Send follow-up email using nodemailer
+        await sendFollowUpEmail(name, email);
+
+        // Update the order status to indicate it is finished
+        await updateOrderStatus(orderId);
+      }
+    } catch (error) {
+      console.error("Error scheduling follow-up email:", error);
+    }
+  });
+
+  console.log(`Follow-up email scheduled for ${followUpDate}`);
+};
+
+const updateOrderStatus = async (orderId) => {
+  // Update the order status in the database
+  await OrderModel.update({ isFinished: true }, { where: { id: orderId } });
+};
+
+const sendFollowUpEmail = async (fullname, email) => {
+  // Update the subject and content for the follow-up email
+  const followUpMailOptions = {
+    from: "temureshtemirov10@gmail.com",
+    to: email,
+    subject: "Registration Successful",
+    html: `<p>Dear ${fullname},</p>
+         <p>Welcome to our platform! You have successfully registered.</p>`,
+  };
+
+  // Send follow-up email
+  try {
+    await transporter.sendMail(followUpMailOptions);
+    console.log("Follow-up email sent successfully");
+  } catch (error) {
+    console.error("Error sending follow-up email:", error);
   }
 };
